@@ -4,32 +4,18 @@ FROM runpod/worker-comfyui:5.5.1-base
 # Install LTX Video custom nodes (includes LTXVConcatAVLatent, LTXVAudioVAE, etc.)
 RUN comfy node install comfyui-ltxvideo --mode remote
 
-# Download LTX 2.3 checkpoint (fp8)
-RUN comfy model download \
-  --url https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-dev-fp8.safetensors \
-  --relative-path models/checkpoints \
-  --filename ltx-2.3-22b-dev-fp8.safetensors
+# Create model directories
+RUN mkdir -p /comfyui/models/text_encoders /comfyui/models/latent_upscale_models
 
-# Download distilled LoRA
-RUN comfy model download \
-  --url https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384.safetensors \
-  --relative-path models/loras \
-  --filename ltx-2.3-22b-distilled-lora-384.safetensors
+# Rename original start script so we can wrap it
+RUN cp /start.sh /start_original.sh
 
-# Download Gemma 3 abliterated LoRA (for prompt enhancement)
-RUN comfy model download \
-  --url https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/loras/gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors \
-  --relative-path models/loras \
-  --filename gemma-3-12b-it-abliterated_lora_rank64_bf16.safetensors
+# Models are downloaded at first startup via download_models.sh
+# This avoids Docker build timeout issues with large model files (~29GB)
+COPY download_models.sh /download_models.sh
+RUN chmod +x /download_models.sh
 
-# Download Gemma 3 text encoder (fp4)
-RUN comfy model download \
-  --url https://huggingface.co/Comfy-Org/ltx-2/resolve/main/split_files/text_encoders/gemma_3_12B_it_fp4_mixed.safetensors \
-  --relative-path models/text_encoders \
-  --filename gemma_3_12B_it_fp4_mixed.safetensors
-
-# Download spatial upscaler
-RUN comfy model download \
-  --url https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors \
-  --relative-path models/latent_upscale_models \
-  --filename ltx-2.3-spatial-upscaler-x2-1.1.safetensors
+# Our wrapper that downloads models then runs the original start
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+CMD ["/start.sh"]
